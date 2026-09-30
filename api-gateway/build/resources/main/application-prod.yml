@@ -1,0 +1,77 @@
+server:
+  port: 8080
+
+spring:
+  config:
+    activate:
+      on-profile: prod
+  cloud:
+    gateway:
+      routes:
+        - id: identity-service-auth
+          uri: http://identity-service:8081
+          predicates:
+            - Path=/api/v1/auth/**
+          filters:
+            - StripPrefix=0
+
+        - id: identity-service-users
+          uri: http://identity-service:8081
+          predicates:
+            - Path=/api/v1/users/**
+          filters:
+            - StripPrefix=0
+            - AuthenticationFilter
+
+        - id: product-service-public
+          uri: http://product-service:8082
+          predicates:
+            - Path=/api/v1/products/**, /api/v1/categories/**
+            - Method=GET
+          filters:
+            - StripPrefix=0
+
+        - id: product-service-admin
+          uri: http://product-service:8082
+          predicates:
+            - Path=/api/v1/products/**, /api/v1/categories/**
+            - Method=POST,PUT,DELETE,PATCH
+          filters:
+            - StripPrefix=0
+            - AuthenticationFilter
+
+        - id: order-service
+          uri: http://order-service:8083
+          predicates:
+            - Path=/api/v1/orders/**, /api/v1/inventory/**
+          filters:
+            - StripPrefix=0
+            - AuthenticationFilter
+
+        - id: payment-service-webhook
+          uri: http://payment-service:8084
+          predicates:
+            - Path=/api/v1/payments/webhook/**
+          filters:
+            - StripPrefix=0
+
+        - id: payment-service-secured
+          uri: http://payment-service:8084
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - StripPrefix=0
+            - AuthenticationFilter
+
+        - id: notification-service
+          uri: http://notification-service:8085
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - StripPrefix=0
+            - AuthenticationFilter
+
+logging:
+  level:
+    root: WARN
+    com.ecommerce.gateway: INFO

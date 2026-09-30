@@ -1,0 +1,63 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.3.4'
+    id 'io.spring.dependency-management' version '1.1.6'
+}
+
+group = 'com.ecommerce'
+version = '1.0.0-SNAPSHOT'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    set('jjwtVersion', '0.12.6')
+}
+
+dependencies {
+    // Spring Boot Web (REST API)
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // Spring Data JPA (ORM cho PostgreSQL)
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+
+    // Spring Validation (DTO validation)
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Spring Security (Password Encoding, Security Filter)
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    // Spring Boot Actuator (Health Check & Metrics)
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // PostgreSQL JDBC Driver
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // JSON Web Token (JJWT 0.12.6)
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+    // Lombok (Giảm boilerplate code)
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+tasks.named('jar') {
+    enabled = false
+}

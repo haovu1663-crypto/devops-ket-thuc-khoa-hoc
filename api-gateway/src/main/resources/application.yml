@@ -1,0 +1,129 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: false
+      routes:
+        # ==========================================
+        # 1. Identity & User Service
+        # ==========================================
+        - id: identity-service-auth
+          uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/auth/**
+          filters:
+            - StripPrefix=0
+
+        - id: identity-service-users
+          uri: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/v1/users/**
+          filters:
+            - StripPrefix=0
+            - AuthenticationFilter
+
+        # ==========================================
+        # 2. Product Catalog Service
+        # ==========================================
+        - id: product-service-public
+          uri: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/products/**, /api/v1/categories/**
+            - Method=GET
+          filters:
+            - StripPrefix=0
+
+        - id: product-service-admin
+          uri: ${PRODUCT_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/v1/products/**, /api/v1/categories/**
+            - Method=POST,PUT,DELETE,PATCH
+          filters:
+            - StripPrefix=0
+            - AuthenticationFilter
+
+        # ==========================================
+        # 3. Order & Inventory Service (Core)
+        # ==========================================
+        - id: order-service
+          uri: ${ORDER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/orders/**, /api/v1/inventory/**
+          filters:
+            - StripPrefix=0
+            - AuthenticationFilter
+
+        # ==========================================
+        # 4. Payment & Billing Service
+        # ==========================================
+        - id: payment-service-webhook
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/payments/webhook/**
+          filters:
+            - StripPrefix=0
+
+        - id: payment-service-secured
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - StripPrefix=0
+            - AuthenticationFilter
+
+        # ==========================================
+        # 5. Notification Service
+        # ==========================================
+        - id: notification-service
+          uri: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - StripPrefix=0
+            - AuthenticationFilter
+
+# JWT Secret Configuration
+jwt:
+  # Secret key (tối thiểu 256 bits cho thuật toán HS256)
+  secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+
+# Actuator metrics for monitoring (Prometheus / Grafana)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+# Logging Configuration mặc định (Local Dev)
+logging:
+  level:
+    root: INFO
+    org.springframework.cloud.gateway: INFO
+    com.ecommerce.gateway: DEBUG
+
+---
+# ==========================================
+# Cấu hình tối ưu riêng cho môi trường Production (Docker / VPS)
+# Tự động kích hoạt khi có: SPRING_PROFILES_ACTIVE=prod
+# ==========================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+logging:
+  level:
+    root: WARN
+    org.springframework.cloud.gateway: WARN
+    com.ecommerce.gateway: INFO
