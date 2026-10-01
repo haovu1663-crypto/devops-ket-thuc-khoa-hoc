@@ -26,6 +26,12 @@ management:
     health:
       show-details: always
 
+# ===== gRPC Server =====
+# Port riêng cho gRPC (không expose ra ngoài Docker, chỉ nội bộ)
+grpc:
+  server:
+    port: 9090
+
 logging:
   level:
     root: INFO

@@ -1,34 +1,30 @@
 # ==========================================
-# Multi-stage Dockerfile for Product Service (Gradle)
+# Multi-stage Dockerfile for Product Service (Gradle + gRPC)
+# PHẢI dùng JDK Debian (không phải Alpine) vì protoc-gen-grpc-java
+# cần glibc để chạy trong quá trình build.
 # ==========================================
 
-# Stage 1: Build JAR application using Gradle Wrapper
-FROM eclipse-temurin:21-jdk-alpine AS builder
+# Stage 1: Build JAR (Debian-based JDK để protoc chạy được)
+FROM eclipse-temurin:21-jdk-jammy AS builder
 WORKDIR /build
 
-# Copy Gradle wrapper và cấu hình dependencies để tận dụng Docker layer caching
 COPY gradlew gradlew.bat ./
 COPY gradle ./gradle
 COPY build.gradle settings.gradle ./
 
-# Cấp quyền thực thi cho gradlew
 RUN chmod +x gradlew
 
-# Copy toàn bộ mã nguồn và build jar
 COPY src ./src
 RUN ./gradlew bootJar --no-daemon -x test
 
-# Stage 2: Runtime image tối ưu và bảo mật
+# Stage 2: Runtime image nhẹ hơn (JRE Alpine OK vì chỉ chạy JAR)
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# Tạo non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Copy file jar từ builder stage
 COPY --from=builder /build/build/libs/*.jar app.jar
 
-# Phân quyền cho non-root user
 RUN chown -R appuser:appgroup /app
 USER appuser
 

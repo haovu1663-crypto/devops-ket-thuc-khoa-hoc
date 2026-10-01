@@ -51,10 +51,30 @@ spring:
         # ==========================================
         # 3. Order & Inventory Service (Core)
         # ==========================================
-        - id: order-service
+        # Tất cả order endpoints đều cần xác thực
+        - id: order-service-orders
           uri: ${ORDER_SERVICE_URL:http://localhost:8083}
           predicates:
-            - Path=/api/v1/orders/**, /api/v1/inventory/**
+            - Path=/api/v1/orders/**
+          filters:
+            - StripPrefix=0
+            - AuthenticationFilter
+
+        # Xem tồn kho PUBLIC (không cần token)
+        - id: order-service-inventory-public
+          uri: ${ORDER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/inventory/**
+            - Method=GET
+          filters:
+            - StripPrefix=0
+
+        # Khởi tạo kho / restock cần xác thực ADMIN
+        - id: order-service-inventory-admin
+          uri: ${ORDER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/inventory/**
+            - Method=POST,PATCH
           filters:
             - StripPrefix=0
             - AuthenticationFilter

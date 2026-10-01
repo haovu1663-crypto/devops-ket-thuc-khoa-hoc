@@ -2,6 +2,7 @@ plugins {
     id 'java'
     id 'org.springframework.boot' version '3.3.4'
     id 'io.spring.dependency-management' version '1.1.6'
+    id 'com.google.protobuf' version '0.9.4'
 }
 
 group = 'com.ecommerce'
@@ -14,6 +15,13 @@ java {
 
 repositories {
     mavenCentral()
+}
+
+// ===== Import gRPC BOM để thống nhất version =====
+dependencyManagement {
+    imports {
+        mavenBom 'io.grpc:grpc-bom:1.63.0'
+    }
 }
 
 dependencies {
@@ -36,9 +44,32 @@ dependencies {
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
+    // ===== gRPC Server — version do BOM quản lý =====
+    implementation 'net.devh:grpc-server-spring-boot-starter:3.1.0.RELEASE'
+    implementation 'io.grpc:grpc-protobuf'
+    implementation 'io.grpc:grpc-stub'
+    compileOnly 'org.apache.tomcat:annotations-api:6.0.53'
+
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// ===== Protobuf Plugin Config =====
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.25.3'
+    }
+    plugins {
+        grpc {
+            artifact = 'io.grpc:protoc-gen-grpc-java:1.63.0'
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+        }
+    }
 }
 
 tasks.named('test') {
