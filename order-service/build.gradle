@@ -43,6 +43,9 @@ dependencies {
     // Spring Security
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
+    // Redis & Redisson (Distributed Lock)
+    implementation 'org.redisson:redisson-spring-boot-starter:3.36.0'
+
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'

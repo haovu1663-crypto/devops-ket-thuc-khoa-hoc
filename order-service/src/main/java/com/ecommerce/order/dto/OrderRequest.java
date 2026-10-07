@@ -1,6 +1,7 @@
 package com.ecommerce.order.dto;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.Data;
 
@@ -13,5 +14,11 @@ public class OrderRequest {
     @Valid
     private List<OrderItemRequest> items;
 
+    @NotBlank(message = "Phương thức thanh toán không được để trống (VNPAY, COD...)")
+    private String paymentMethod; // VNPAY, COD
+
+    private String bankCode; // NCB, VCB, VISA... (dành cho VNPAY)
+
     private String note;
 }
+

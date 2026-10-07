@@ -35,6 +35,9 @@ public class Order {
     @Column(name = "total_price", nullable = false)
     private Double totalPrice;
 
+    @Column(name = "payment_method", length = 30)
+    private String paymentMethod;
+
     @Column(length = 500)
     private String note;
 

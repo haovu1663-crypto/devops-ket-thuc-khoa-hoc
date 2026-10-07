@@ -10,14 +10,18 @@ import com.ecommerce.order.entity.OrderStatus;
 import com.ecommerce.order.exception.*;
 import com.ecommerce.order.repository.InventoryRepository;
 import com.ecommerce.order.repository.OrderRepository;
+import lombok.RequiredArgsConstructor;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,13 +33,83 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final InventoryRepository inventoryRepository;
     private final ProductGrpcClient productGrpcClient;
+    private final RedissonClient redissonClient;
+    private final TransactionTemplate transactionTemplate;
+    private final com.ecommerce.order.event.OrderEventPublisher orderEventPublisher;
 
     /**
-     * Tạo đơn hàng mới.
-     * Luồng: gRPC lấy SP → Pessimistic Lock tồn kho → Snapshot → Lưu DB
+     * Tạo đơn hàng mới với Redis Distributed Lock.
+     * Luồng:
+     * 1. Thu thập và sắp xếp các Product ID tăng dần (chống Deadlock).
+     * 2. Lấy Redisson Lock cho từng sản phẩm (waitTime: 3s, leaseTime: 5s).
+     * 3. Thực thi trừ tồn kho & tạo Order trong DB Transaction (TransactionTemplate).
+     * 4. Giải phóng toàn bộ Lock an toàn trong khối finally sau khi Transaction đã commit.
+     * 5. Phát sự kiện OrderCreatedEvent sang Payment Service và các listener khác.
      */
-    @Transactional
     public OrderResponse createOrder(String userId, OrderRequest request) {
+        // 1. Sắp xếp Product ID tăng dần để tránh Deadlock giữa các giao dịch đồng thời
+        List<Long> productIds = request.getItems().stream()
+                .map(OrderItemRequest::getProductId)
+                .distinct()
+                .sorted()
+                .toList();
+
+        List<RLock> acquiredLocks = new ArrayList<>();
+
+        try {
+            // 2. Thâu tóm Distributed Lock cho từng sản phẩm
+            for (Long productId : productIds) {
+                String lockKey = "lock:inventory:" + productId;
+                RLock lock = redissonClient.getLock(lockKey);
+
+                // Chờ tối đa 3s để lấy lock, tự động nhả sau 5s nếu sự cố
+                boolean acquired = lock.tryLock(3, 5, TimeUnit.SECONDS);
+                if (!acquired) {
+                    log.warn("Failed to acquire Redis lock for productId={}, userId={}", productId, userId);
+                    throw new BusinessException("Hệ thống đang xử lý lượng đặt hàng lớn cho sản phẩm này. Vui lòng thử lại sau!");
+                }
+                acquiredLocks.add(lock);
+            }
+
+            // 3. Thực thi nghiệp vụ kiểm tra tồn kho & Đặt hàng trong Transaction
+            OrderResponse response = transactionTemplate.execute(status -> doCreateOrderWithStockDeduction(userId, request));
+
+            // 4. Phát sự kiện OrderCreatedEvent cho Payment Service & Notification Service
+            if (response != null) {
+                orderEventPublisher.publishOrderCreated(com.ecommerce.order.event.OrderCreatedEvent.builder()
+                        .orderId(response.getId())
+                        .userId(userId)
+                        .totalPrice(response.getTotalPrice())
+                        .paymentMethod(request.getPaymentMethod())
+                        .bankCode(request.getBankCode())
+                        .createdAt(response.getCreatedAt())
+                        .build());
+            }
+
+            return response;
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException("Giao dịch đặt hàng bị gián đoạn. Vui lòng thử lại!");
+        } finally {
+            // 5. Luôn giải phóng tất cả Lock theo thứ tự ngược lại
+            for (int i = acquiredLocks.size() - 1; i >= 0; i--) {
+                RLock lock = acquiredLocks.get(i);
+                try {
+                    if (lock.isHeldByCurrentThread()) {
+                        lock.unlock();
+                    }
+                } catch (Exception e) {
+                    log.error("Error releasing Redis lock: {}", e.getMessage(), e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Nghiệp vụ trừ kho và tạo đơn hàng chạy trong Transaction
+     */
+    private OrderResponse doCreateOrderWithStockDeduction(String userId, OrderRequest request) {
         List<OrderItem> items = new ArrayList<>();
         double totalPrice = 0.0;
 
@@ -43,7 +117,9 @@ public class OrderService {
             // 1. Gọi gRPC sang product-service lấy thông tin để snapshot
             ProductGrpcResponse product = productGrpcClient.getProductById(itemReq.getProductId());
 
-            // 2. Kiểm tra + Pessimistic Lock tồn kho (SELECT FOR UPDATE)
+           
+            // 2. Kiểm tra + Pessimistic Lock tồn kho (SELECT FOR UPDATE)(SELECT * FROM inventories WHERE product_id = ? FOR UPDATE;)
+            // đoạn lệnh này khóa database để sử lý không cho các hoạt động khác sửa đổi cùng lúc 
             Inventory inventory = inventoryRepository
                     .findByProductIdWithLock(itemReq.getProductId())
                     .orElseThrow(() -> new BusinessException(
@@ -59,6 +135,7 @@ public class OrderService {
             }
 
             // 4. Giữ hàng (reserve stock)
+            //Tạo thời trừ tạm số lượng để người khác vào  xem với sô lượng đã trừ
             inventory.setReservedStock(inventory.getReservedStock() + itemReq.getQuantity());
             inventoryRepository.save(inventory);
             log.info("Reserved {} units of product '{}' (productId={})",
@@ -83,6 +160,7 @@ public class OrderService {
                 .userId(userId)
                 .status(OrderStatus.PENDING)
                 .totalPrice(totalPrice)
+                .paymentMethod(request.getPaymentMethod())
                 .note(request.getNote())
                 .build();
 
@@ -92,7 +170,7 @@ public class OrderService {
         savedOrder.getItems().addAll(items);
         orderRepository.save(savedOrder);
 
-        log.info("Order #{} created for userId={}, total={}", savedOrder.getId(), userId, totalPrice);
+        log.info("Order #{} created for userId={}, total={}, paymentMethod={}", savedOrder.getId(), userId, totalPrice, request.getPaymentMethod());
         return mapToResponse(savedOrder);
     }
 
@@ -226,6 +304,7 @@ public class OrderService {
                 .userId(order.getUserId())
                 .status(order.getStatus())
                 .totalPrice(order.getTotalPrice())
+                .paymentMethod(order.getPaymentMethod())
                 .note(order.getNote())
                 .items(itemResponses)
                 .createdAt(order.getCreatedAt())

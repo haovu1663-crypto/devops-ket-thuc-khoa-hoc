@@ -89,6 +89,14 @@ spring:
           filters:
             - StripPrefix=0
 
+        # VNPAY redirect trình duyệt về đây sau khi thanh toán (không có JWT) -> PUBLIC
+        - id: payment-service-vnpay-return
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/payments/vnpay-return
+          filters:
+            - StripPrefix=0
+
         - id: payment-service-secured
           uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
           predicates:

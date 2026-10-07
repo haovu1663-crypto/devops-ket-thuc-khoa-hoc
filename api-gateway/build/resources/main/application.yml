@@ -51,10 +51,30 @@ spring:
         # ==========================================
         # 3. Order & Inventory Service (Core)
         # ==========================================
-        - id: order-service
+        # Tất cả order endpoints đều cần xác thực
+        - id: order-service-orders
           uri: ${ORDER_SERVICE_URL:http://localhost:8083}
           predicates:
-            - Path=/api/v1/orders/**, /api/v1/inventory/**
+            - Path=/api/v1/orders/**
+          filters:
+            - StripPrefix=0
+            - AuthenticationFilter
+
+        # Xem tồn kho PUBLIC (không cần token)
+        - id: order-service-inventory-public
+          uri: ${ORDER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/inventory/**
+            - Method=GET
+          filters:
+            - StripPrefix=0
+
+        # Khởi tạo kho / restock cần xác thực ADMIN
+        - id: order-service-inventory-admin
+          uri: ${ORDER_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/v1/inventory/**
+            - Method=POST,PATCH
           filters:
             - StripPrefix=0
             - AuthenticationFilter
@@ -66,6 +86,14 @@ spring:
           uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
           predicates:
             - Path=/api/v1/payments/webhook/**
+          filters:
+            - StripPrefix=0
+
+        # VNPAY redirect trình duyệt về đây sau khi thanh toán (không có JWT) -> PUBLIC
+        - id: payment-service-vnpay-return
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/v1/payments/vnpay-return
           filters:
             - StripPrefix=0
 
@@ -105,8 +133,25 @@ management:
     gateway:
       enabled: true
 
+# Logging Configuration mặc định (Local Dev)
 logging:
   level:
     root: INFO
     org.springframework.cloud.gateway: INFO
     com.ecommerce.gateway: DEBUG
+
+---
+# ==========================================
+# Cấu hình tối ưu riêng cho môi trường Production (Docker / VPS)
+# Tự động kích hoạt khi có: SPRING_PROFILES_ACTIVE=prod
+# ==========================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+logging:
+  level:
+    root: WARN
+    org.springframework.cloud.gateway: WARN
+    com.ecommerce.gateway: INFO

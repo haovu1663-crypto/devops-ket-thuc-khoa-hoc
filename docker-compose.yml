@@ -134,10 +134,16 @@ services:
       # gRPC Client: kết nối sang product-service qua Docker internal network
       PRODUCT_SERVICE_GRPC_HOST: product-service
       PRODUCT_SERVICE_GRPC_PORT: 9090
+      # Redis Distributed Lock
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
     depends_on:
       postgres:
         condition: service_healthy
       product-service:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - backend-network
@@ -148,14 +154,77 @@ services:
       retries: 3
       start_period: 30s
 
+  # ========================================================
+  # 6. Payment & Billing Service (VNPAY Sandbox, COD, Invoices)
+  # ========================================================
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: ecommerce-payment-service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/payment_db
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      # Redis Distributed Lock & Idempotency
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      # Order Service URL
+      ORDER_SERVICE_URL: http://order-service:8083
+      # VNPAY Sandbox Configuration
+      VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-2QXUI4J4}
+      VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-RAOCTXGU2X5TQETQYMWKNZ3Z4126S7N4}
+      VNPAY_PAY_URL: ${VNPAY_PAY_URL:-https://sandbox.vnpayment.vn/paymentv2/vpcpay.html}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-http://localhost:8080/api/v1/payments/vnpay-return}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8084/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ========================================================
+  # 7. Redis In-Memory Cache & Distributed Lock
+  # ========================================================
+  redis:
+    image: redis:7-alpine
+    container_name: ecommerce-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass redis123
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
 # ==========================================================
 # Persistent Volumes
 # ==========================================================
 volumes:
   postgres_data:
     name: ecommerce_postgres_data
-
-
+  redis_data:
+    name: ecommerce_redis_data
 
 # ==========================================================
 # Bridge Network dùng chung cho toàn bộ Microservices
@@ -164,3 +233,4 @@ networks:
   backend-network:
     name: backend-network
     driver: bridge
+
