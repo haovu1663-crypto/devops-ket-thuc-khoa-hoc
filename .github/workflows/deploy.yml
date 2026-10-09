@@ -40,7 +40,9 @@ jobs:
           cache: 'gradle'
 
       - name: ⚙️ Grant execute permission for gradlew
-        run: chmod +x ./${{ matrix.service }}/gradlew
+        run: |
+          chmod +x ./${{ matrix.service }}/gradlew
+          sed -i 's/\r$//' ./${{ matrix.service }}/gradlew
 
       - name: 🏗️ Build ${{ matrix.service }}
         working-directory: ./${{ matrix.service }}
