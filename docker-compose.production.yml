@@ -97,6 +97,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-admin}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-admin123}
+      RABBITMQ_DISK_FREE_LIMIT: 256MB
     ports:
       - "127.0.0.1:15672:15672"
     volumes:
