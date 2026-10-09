@@ -28,6 +28,9 @@ dependencies {
     // Spring Boot Actuator for health checks and metrics
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
+    // Redis Reactive for RequestRateLimiter Filter
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+
     // JSON Web Token (JJWT 0.12.6) for Gateway Security & Token Verification
     implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
     runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"

@@ -19,8 +19,13 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'order_db')\gexec
 SELECT 'CREATE DATABASE payment_db'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'payment_db')\gexec
 
+-- 5. Database cho Notification Service (Lịch sử gửi email)
+SELECT 'CREATE DATABASE notification_db'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'notification_db')\gexec
+
 -- Gán quyền cho user postgres
 GRANT ALL PRIVILEGES ON DATABASE identity_db TO postgres;
 GRANT ALL PRIVILEGES ON DATABASE product_db TO postgres;
 GRANT ALL PRIVILEGES ON DATABASE order_db TO postgres;
 GRANT ALL PRIVILEGES ON DATABASE payment_db TO postgres;
+GRANT ALL PRIVILEGES ON DATABASE notification_db TO postgres;

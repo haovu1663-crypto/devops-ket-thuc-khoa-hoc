@@ -1,0 +1,160 @@
+name: Build & Deploy E-Commerce Microservices to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Cho phép kích hoạt thủ công từ tab Actions
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  # ========================================================
+  # STAGE 1: CI - Build & Kiểm thử Java Codebase
+  # ========================================================
+  ci-build-and-test:
+    name: 🔨 CI - Build Gradle Microservices
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service:
+          - api-gateway
+          - identity-service
+          - product-service
+          - order-service
+          - payment-service
+          - notification-service
+
+    steps:
+      - name: 📥 Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: ☕ Setup Java 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: ⚙️ Grant execute permission for gradlew
+        run: chmod +x ./${{ matrix.service }}/gradlew
+
+      - name: 🏗️ Build ${{ matrix.service }}
+        working-directory: ./${{ matrix.service }}
+        run: ./gradlew bootJar --no-daemon -x test
+
+  # ========================================================
+  # STAGE 2: BUILD & PUSH DOCKER IMAGES (GHCR)
+  # ========================================================
+  docker-build-and-push:
+    name: 🐳 Docker - Build & Push Images
+    needs: ci-build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        service:
+          - api-gateway
+          - identity-service
+          - product-service
+          - order-service
+          - payment-service
+          - notification-service
+
+    steps:
+      - name: 📥 Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔑 Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🏷️ Extract Metadata (Tags & Labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/ecommerce-${{ matrix.service }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
+      - name: 🚀 Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ========================================================
+  # STAGE 3: CD - DEPLOY TO VPS QUA SSH (AUTOMATION)
+  # ========================================================
+  deploy-to-vps:
+    name: 🚀 CD - SSH & Deploy to Cloud VPS
+    needs: docker-build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 📥 Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: 📁 Copy Cấu hình Triển khai sang VPS qua SCP
+        uses: appleboy/scp-action@v0.1.7
+        if: ${{ env.VPS_HOST != '' }}
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          passphrase: ${{ secrets.VPS_SSH_PASSPHRASE }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: 'docker-compose.production.yml,docker/nginx/nginx.conf,docker/postgres/init-databases.sql'
+          target: '/opt/ecommerce'
+          overwrite: true
+
+      - name: ⚡ Thực thi Kéo Image & Khởi động Container trên VPS
+        uses: appleboy/ssh-action@v1.0.3
+        if: ${{ env.VPS_HOST != '' }}
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          passphrase: ${{ secrets.VPS_SSH_PASSPHRASE }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -e
+            echo "🚀 [1/5] Đang đăng nhập Container Registry..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            cd /opt/ecommerce
+
+            echo "📦 [2/5] Đang kéo image mới nhất từ Registry..."
+            DOCKER_REGISTRY=${{ env.IMAGE_PREFIX }} docker compose -f docker-compose.production.yml pull
+
+            echo "🔄 [3/5] Khởi động hệ thống Microservices Zero-Downtime..."
+            DOCKER_REGISTRY=${{ env.IMAGE_PREFIX }} docker compose -f docker-compose.production.yml up -d --remove-orphans
+
+            echo "🧹 [4/5] Dọn dẹp Image cũ để tiết kiệm dung lượng đĩa VPS..."
+            docker image prune -f
+
+            echo "🩺 [5/5] Kiểm tra trạng thái các Container..."
+            docker compose -f docker-compose.production.yml ps
+            echo "🎉 Triển khai thành công trên VPS!"

@@ -19,6 +19,8 @@ public class OrderRequest {
 
     private String bankCode; // NCB, VCB, VISA... (dành cho VNPAY)
 
+    private String customerEmail; // Email của khách nhận thông báo đơn hàng
+
     private String note;
 }
 

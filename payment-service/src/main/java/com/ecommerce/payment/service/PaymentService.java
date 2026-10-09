@@ -35,6 +35,7 @@ public class PaymentService {
     private final OrderServiceClient orderServiceClient;
     private final RedissonClient redissonClient;
     private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+    private final com.ecommerce.payment.event.PaymentNotificationPublisher notificationPublisher;
 
     /**
      * Tạo yêu cầu thanh toán (VNPAY, COD...)
@@ -186,6 +187,9 @@ public class PaymentService {
 
             // Gọi REST API (OpenFeign) sang order-service để cập nhật đơn hàng thành CONFIRMED
             orderServiceClient.updateOrderStatus(payment.getOrderId(), "CONFIRMED");
+
+            // Gửi thông báo thanh toán thành công sang notification-service (RabbitMQ, bất đồng bộ)
+            notificationPublisher.publishPaymentSuccess(payment);
 
             log.info("VNPay IPN SUCCESS: Order #{} marked as CONFIRMED for txnRef={}", payment.getOrderId(), txnRef);
             // Ghi nhật ký thành công vào payment_logs

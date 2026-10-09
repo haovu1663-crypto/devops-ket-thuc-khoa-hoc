@@ -1,0 +1,23 @@
+# Environment variables & secrets
+.env
+*.env
+
+# Build outputs & Gradle
+.gradle/
+build/
+bin/
+out/
+target/
+*.jar
+*.war
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.swp
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

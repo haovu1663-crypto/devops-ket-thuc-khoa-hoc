@@ -1,0 +1,105 @@
+{
+	"info": {
+		"_postman_id": "c1a2b3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "Ecommerce - Rate Limiter Test",
+		"description": "Bộ test kiểm tra tính năng Rate Limiting tại API Gateway bằng Token Bucket & Redis",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Test IP Rate Limit (Auth Login - Burst 10)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Kiểm tra phản hồi hợp lệ (400, 401 hoặc 429)\", function () {",
+							"    pm.expect([400, 401, 429]).to.include(pm.response.code);",
+							"});",
+							"",
+							"if (pm.response.code === 429) {",
+							"    pm.test(\"🔥 RATE LIMIT ĐÃ ĐƯỢC KÍCH HOẠT THÀNH CÔNG (HTTP 429)\", function () {",
+							"        pm.expect(pm.response.code).to.eql(429);",
+							"    });",
+							"    console.warn(\"Cảnh báo: Đã vượt quá 10 request/burst! Header X-RateLimit-Remaining:\", pm.response.headers.get(\"X-RateLimit-Remaining\"));",
+							"} else {",
+							"    console.log(\"Request lọt qua xô token. Còn lại:\", pm.response.headers.get(\"X-RateLimit-Remaining\"));",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"username\": \"admin\",\n    \"password\": \"admin123\"\n}"
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/v1/auth/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"auth",
+						"login"
+					]
+				},
+				"description": "Endpoint này giới hạn burstCapacity: 10, replenishRate: 5 token/s. Khi chạy Runner với 20 iterations liên tiếp, từ request 11+ sẽ trả về mã 429."
+			},
+			"response": []
+		},
+		{
+			"name": "2. Test Public Products (Burst 40)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code là 200 hoặc 429\", function () {",
+							"    pm.expect([200, 429]).to.include(pm.response.code);",
+							"});",
+							"",
+							"if (pm.response.code === 429) {",
+							"    pm.test(\"🔥 KÍCH HOẠT RATE LIMIT 429 KHI BẮN > 40 REQ\", function () {",
+							"        pm.expect(pm.response.code).to.eql(429);",
+							"    });",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/api/v1/products",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"v1",
+						"products"
+					]
+				},
+				"description": "Endpoint này có burstCapacity: 40, replenishRate: 20 req/s."
+			},
+			"response": []
+		}
+	]
+}

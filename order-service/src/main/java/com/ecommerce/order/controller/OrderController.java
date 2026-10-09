@@ -25,12 +25,19 @@ public class OrderController {
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
             @RequestHeader(value = "X-User-Id", required = false) String userId,
+            @RequestHeader(value = "X-User-Username", required = false) String username,
             @RequestHeader(value = "X-User-Role", required = false) String role,
             @Valid @RequestBody OrderRequest request) {
 
         if (userId == null || userId.isBlank()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.error(401, "Bạn cần đăng nhập để đặt hàng"));
+        }
+
+        // Tự động gán customerEmail từ username nếu username là email và request chưa có
+        if ((request.getCustomerEmail() == null || request.getCustomerEmail().isBlank())
+                && username != null && username.contains("@")) {
+            request.setCustomerEmail(username);
         }
 
         OrderResponse order = orderService.createOrder(userId, request);

@@ -17,35 +17,21 @@ repositories {
 }
 
 dependencies {
-    // Spring Boot Web (REST API)
     implementation 'org.springframework.boot:spring-boot-starter-web'
-
-    // Spring Data JPA (PostgreSQL ORM)
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-
-    // PostgreSQL JDBC Driver
     runtimeOnly 'org.postgresql:postgresql'
-
-    // Validation
-    implementation 'org.springframework.boot:spring-boot-starter-validation'
-
-    // Spring Boot Actuator (Health Check)
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
-    // Spring Security
-    implementation 'org.springframework.boot:spring-boot-starter-security'
-
-    // Redis & Redisson (Distributed Lock & Idempotency)
-    implementation 'org.redisson:redisson-spring-boot-starter:3.36.0'
-
-    // RabbitMQ (gửi event cho notification-service)
+    // RabbitMQ (Message Broker)
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
 
-    // Lombok
+    // Gửi Email + Template HTML
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
-    // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

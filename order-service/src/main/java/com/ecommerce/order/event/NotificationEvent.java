@@ -5,22 +5,22 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/** Message gửi sang notification-service qua RabbitMQ. */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderCreatedEvent implements Serializable {
-
-    private static final long serialVersionUID = 1L;
-
+public class NotificationEvent {
+    private String eventType;
     private Long orderId;
     private String userId;
-    private Double totalPrice;
+    private String customerEmail;
+    private Double amount;
     private String paymentMethod;
     private String bankCode;
-    private String customerEmail;
-    private LocalDateTime createdAt;
+    private String transactionCode;
+    private String providerTxnRef;
+    private LocalDateTime occurredAt;
 }

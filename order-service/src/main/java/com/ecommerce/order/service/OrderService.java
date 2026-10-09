@@ -82,6 +82,7 @@ public class OrderService {
                         .totalPrice(response.getTotalPrice())
                         .paymentMethod(request.getPaymentMethod())
                         .bankCode(request.getBankCode())
+                        .customerEmail(request.getCustomerEmail() != null ? request.getCustomerEmail() : (userId != null && userId.contains("@") ? userId : null))
                         .createdAt(response.getCreatedAt())
                         .build());
             }

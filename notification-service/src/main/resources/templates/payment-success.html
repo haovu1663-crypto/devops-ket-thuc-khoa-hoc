@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="vi">
+<head><meta charset="UTF-8"><title>Thanh toán thành công</title></head>
+<body style="margin:0;padding:24px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:auto;background:#ffffff;border-radius:12px;overflow:hidden;">
+    <tr><td style="background:linear-gradient(135deg,#059669,#10b981);padding:28px;color:#fff;">
+        <h1 style="margin:0;font-size:22px;">✅ Thanh toán thành công</h1>
+        <p style="margin:6px 0 0;opacity:.9;">Đơn hàng của bạn đã được xác nhận</p>
+    </td></tr>
+    <tr><td style="padding:28px;color:#334155;font-size:15px;line-height:1.6;">
+        <p>Xin chào <b th:text="${customer}">khách hàng</b>,</p>
+        <p>Chúng tôi đã nhận được thanh toán của bạn. Biên lai:</p>
+        <table width="100%" cellpadding="10" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:8px;">
+            <tr style="background:#f8fafc;"><td>Mã đơn hàng</td><td align="right"><b>#<span th:text="${orderId}">1</span></b></td></tr>
+            <tr><td>Số tiền</td><td align="right"><b style="color:#059669;" th:text="${amount}">0 ₫</b></td></tr>
+            <tr style="background:#f8fafc;"><td>Mã giao dịch</td><td align="right" th:text="${transactionCode}">TXN...</td></tr>
+            <tr><td>Mã giao dịch VNPAY</td><td align="right" th:text="${providerTxnRef}">--</td></tr>
+            <tr style="background:#f8fafc;"><td>Ngân hàng</td><td align="right" th:text="${bankCode}">NCB</td></tr>
+            <tr><td>Thời gian</td><td align="right" th:text="${time}">--</td></tr>
+        </table>
+        <p style="margin-top:20px;">Đơn hàng sẽ sớm được chuẩn bị và giao đến bạn.</p>
+    </td></tr>
+    <tr><td style="background:#f8fafc;padding:16px;text-align:center;color:#94a3b8;font-size:12px;">
+        Email tự động từ notification-service – vui lòng không trả lời.
+    </td></tr>
+</table>
+</body>
+</html>
