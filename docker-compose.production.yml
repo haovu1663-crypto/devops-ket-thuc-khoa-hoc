@@ -188,9 +188,9 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/identity_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      DB_URL: jdbc:postgresql://postgres:5432/identity_db
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
       JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
       JAVA_OPTS: "-Xms128m -Xmx256m -XX:+UseG1GC"
     depends_on:
@@ -211,7 +211,7 @@ services:
           memory: 384M
 
   # ========================================================
-  # 7. Product Catalog Service (MongoDB + gRPC)
+  # 7. Product Catalog Service (PostgreSQL product_db + gRPC)
   # ========================================================
   product-service:
     image: ${DOCKER_REGISTRY:-ghcr.io/haovu1663-crypto}/ecommerce-product-service:${DOCKER_IMAGE_TAG:-latest}
@@ -219,10 +219,12 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATA_MONGODB_URI: mongodb://mongo:27017/product_db
+      DB_URL: jdbc:postgresql://postgres:5432/product_db
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
       JAVA_OPTS: "-Xms128m -Xmx256m -XX:+UseG1GC"
     depends_on:
-      mongo:
+      postgres:
         condition: service_healthy
     networks:
       - backend-network
@@ -247,18 +249,18 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/order_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-admin}
-      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-admin123}
-      PRODUCT_GRPC_HOST: product-service
-      PRODUCT_GRPC_PORT: 9090
+      DB_URL: jdbc:postgresql://postgres:5432/order_db
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-admin}
+      RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-admin123}
+      PRODUCT_SERVICE_GRPC_HOST: product-service
+      PRODUCT_SERVICE_GRPC_PORT: 9090
       JAVA_OPTS: "-Xms128m -Xmx384m -XX:+UseG1GC"
     depends_on:
       postgres:
@@ -292,16 +294,16 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/payment_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
-      SPRING_DATA_REDIS_HOST: redis
-      SPRING_DATA_REDIS_PORT: 6379
-      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
-      SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER:-admin}
-      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-admin123}
+      DB_URL: jdbc:postgresql://postgres:5432/payment_db
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER:-admin}
+      RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS:-admin123}
       ORDER_SERVICE_URL: http://order-service:8083
       VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-W2EYYNI1}
       VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-EZCZVFHCMRTQQPSCGHIHZJJHTLBNYIIA}
