@@ -306,6 +306,7 @@ services:
       ORDER_SERVICE_URL: http://order-service:8083
       VNPAY_TMN_CODE: ${VNPAY_TMN_CODE:-W2EYYNI1}
       VNPAY_HASH_SECRET: ${VNPAY_HASH_SECRET:-EZCZVFHCMRTQQPSCGHIHZJJHTLBNYIIA}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-http://api-haomilo.duckdns.org/api/v1/payments/vnpay-return}
       JAVA_OPTS: "-Xms128m -Xmx256m -XX:+UseG1GC"
     depends_on:
       postgres:
