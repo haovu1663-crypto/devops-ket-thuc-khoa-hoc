@@ -126,7 +126,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          source: 'docker-compose.production.yml,docker/nginx/nginx.conf,docker/postgres/init-databases.sql'
+          source: 'docker-compose.production.yml,docker/**'
           target: '/opt/ecommerce'
           overwrite: true
 
@@ -141,15 +141,32 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT || 22 }}
+          command_timeout: 10m
           script: |
             set -e
-            echo "🚀 [1/5] Đang đăng nhập Container Registry..."
+            echo "🔐 [1/5] Đang đăng nhập Container Registry..."
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             cd /opt/ecommerce
 
-            echo "📦 [2/5] Đang kéo image mới nhất từ Registry..."
-            DOCKER_REGISTRY=${{ env.IMAGE_PREFIX }} docker compose -f docker-compose.production.yml pull
+            echo "📦 [2/5] Đang kéo image mới nhất từ Registry (có cơ chế tự động thử lại 3 lần)..."
+            PULL_SUCCESS=false
+            for i in 1 2 3; do
+              echo "===> Lần thử $i/3: Kéo Docker images..."
+              if DOCKER_REGISTRY=${{ env.IMAGE_PREFIX }} docker compose -f docker-compose.production.yml pull; then
+                PULL_SUCCESS=true
+                echo "✅ Kéo images thành công!"
+                break
+              else
+                echo "⚠️ Lần thử $i thất bại do gián đoạn mạng. Chờ 5 giây thử lại..."
+                sleep 5
+              fi
+            done
+
+            if [ "$PULL_SUCCESS" = false ]; then
+              echo "❌ Không thể tải images sau 3 lần thử."
+              exit 1
+            fi
 
             echo "🔄 [3/5] Khởi động hệ thống Microservices Zero-Downtime..."
             DOCKER_REGISTRY=${{ env.IMAGE_PREFIX }} docker compose -f docker-compose.production.yml up -d --remove-orphans
