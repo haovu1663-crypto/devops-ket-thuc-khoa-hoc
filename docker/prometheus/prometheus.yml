@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # 1. Thu thập chỉ số tài nguyên máy chủ VPS (CPU, RAM, Disk I/O, Network)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # 2. Thu thập chỉ số tài nguyên từng Container Docker (cAdvisor)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # 3. Thu thập chỉ số của chính Prometheus
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # 4. Thu thập chỉ số Spring Boot Actuator từ API Gateway
+  - job_name: 'api-gateway'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['api-gateway:8080']
