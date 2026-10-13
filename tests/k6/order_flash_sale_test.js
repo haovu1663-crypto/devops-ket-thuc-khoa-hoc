@@ -61,14 +61,14 @@ export function setup() {
     console.warn(`⚠️ Đăng nhập thất bại (HTTP ${loginRes.status}): ${loginRes.body}`);
   }
 
-  // Lấy số lượng tồn kho ban đầu của sản phẩm
-  const prodRes = http.get(`${BASE_URL}/api/v1/products/${PRODUCT_ID}`);
+  // Lấy số lượng tồn kho ban đầu từ Inventory Service
+  const invRes = http.get(`${BASE_URL}/api/v1/inventory/${PRODUCT_ID}`);
   let initialStock = 0;
-  if (prodRes.status === 200) {
+  if (invRes.status === 200) {
     try {
-      const prodBody = JSON.parse(prodRes.body);
-      initialStock = prodBody.data ? prodBody.data.stock : 0;
-      console.log(`📦 Tồn kho sản phẩm ID=${PRODUCT_ID} TRƯỚC KHI TEST: ${initialStock} cái`);
+      const invBody = JSON.parse(invRes.body);
+      initialStock = invBody.data ? invBody.data.availableStock : 0;
+      console.log(`📦 Tồn kho khả dụng (Available) sản phẩm ID=${PRODUCT_ID} TRƯỚC KHI TEST: ${initialStock} cái`);
     } catch (e) {
       console.warn('Không đọc được thông tin kho:', e);
     }
@@ -125,17 +125,22 @@ export default function (data) {
 // 3. TEARDOWN: Kiểm tra lại tồn kho cuối cùng để chứng minh tính bảo toàn (Zero Overselling)
 export function teardown(data) {
   console.log('\n=================== BÁO CÁO KẾT THÚC KIỂM THỬ ===================');
-  const prodRes = http.get(`${BASE_URL}/api/v1/products/${PRODUCT_ID}`);
-  if (prodRes.status === 200) {
+  const invRes = http.get(`${BASE_URL}/api/v1/inventory/${PRODUCT_ID}`);
+  if (invRes.status === 200) {
     try {
-      const prodBody = JSON.parse(prodRes.body);
-      const finalStock = prodBody.data ? prodBody.data.stock : 0;
-      console.log(`📦 Tồn kho BAN ĐẦU : ${data.initialStock}`);
-      console.log(`📦 Tồn kho SAU TEST: ${finalStock}`);
-      if (finalStock >= 0) {
-        console.log(`🛡️ KẾT LUẬN: ĐẠT CHUẨN ZERO OVERSELLING ✅ (Kho không bao giờ bị âm!)`);
+      const invBody = JSON.parse(invRes.body);
+      const inv = invBody.data || {};
+      const total = inv.totalStock !== undefined ? inv.totalStock : 0;
+      const reserved = inv.reservedStock !== undefined ? inv.reservedStock : 0;
+      const available = inv.availableStock !== undefined ? inv.availableStock : 0;
+      console.log(`📦 Tồn kho khả dụng BAN ĐẦU    : ${data.initialStock} cái`);
+      console.log(`📦 Tổng kho (Total Stock)        : ${total} cái`);
+      console.log(`📦 Đã bán/giữ chỗ (Reserved)     : ${reserved} cái`);
+      console.log(`📦 Tồn kho khả dụng SAU TEST     : ${available} cái`);
+      if (available >= 0 && reserved <= total) {
+        console.log(`🛡️ KẾT LUẬN: ĐẠT CHUẨN ZERO OVERSELLING ✅ (Không bao giờ bị bán vượt/âm kho!)`);
       } else {
-        console.log(`❌ THẤT BẠI: Kho bị âm (${finalStock}) ➔ Đã xảy ra Overselling!`);
+        console.log(`❌ THẤT BẠI: Kho bị âm (${available}) hoặc bán vượt (${reserved}/${total})!`);
       }
     } catch (e) {
       console.error(e);
