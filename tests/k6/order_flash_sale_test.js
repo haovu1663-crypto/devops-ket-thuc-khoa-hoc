@@ -62,16 +62,36 @@ export function setup() {
   }
 
   // Lấy số lượng tồn kho ban đầu từ Inventory Service
-  const invRes = http.get(`${BASE_URL}/api/v1/inventory/${PRODUCT_ID}`);
   let initialStock = 0;
+  const invRes = http.get(`${BASE_URL}/api/v1/inventory/${PRODUCT_ID}`);
   if (invRes.status === 200) {
     try {
       const invBody = JSON.parse(invRes.body);
       initialStock = invBody.data ? invBody.data.availableStock : 0;
-      console.log(`📦 Tồn kho khả dụng (Available) sản phẩm ID=${PRODUCT_ID} TRƯỚC KHI TEST: ${initialStock} cái`);
     } catch (e) {
       console.warn('Không đọc được thông tin kho:', e);
     }
+  }
+
+  // TỰ ĐỘNG NẠP KHO (RESTOCK): Nếu kho đã hết sau lần test trước, tự động nạp thêm 100 cái
+  if (initialStock <= 0 && token) {
+    console.log(`🔄 Kho đang hết hàng, tự động gọi API Restock nạp thêm 100 cái cho sản phẩm ID=${PRODUCT_ID}...`);
+    const restockRes = http.patch(
+      `${BASE_URL}/api/v1/inventory/${PRODUCT_ID}/restock?additionalStock=100`,
+      null,
+      { headers: { 'Authorization': `Bearer ${token}` } }
+    );
+    if (restockRes.status === 200) {
+      try {
+        const restockData = JSON.parse(restockRes.body).data;
+        initialStock = restockData.availableStock;
+        console.log(`✅ Nạp kho thành công! Tồn kho khả dụng chuẩn bị test: ${initialStock} cái`);
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+  } else {
+    console.log(`📦 Tồn kho khả dụng (Available) sản phẩm ID=${PRODUCT_ID} TRƯỚC KHI TEST: ${initialStock} cái`);
   }
 
   return { token: token, initialStock: initialStock };
